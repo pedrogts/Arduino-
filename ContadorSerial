@@ -1,0 +1,51 @@
+#define ledPin 13
+#define buttonPin 3
+
+volatile bool statusBotao = HIGH; // estado anterior do botão
+volatile bool primeiroAperto = true; // indicador do primeiro aperto do botão
+volatile unsigned long apertoBotao = 0; // tempo do último debounce
+volatile int contador = 0; // contador
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  pinMode(buttonPin, INPUT_PULLUP); // definindo o pino do botão como entrada com resistor de pull-up interno
+  attachInterrupt(digitalPinToInterrupt(buttonPin), buttonInterrupt, CHANGE); // configurando a interrupção para o botão
+  Serial.begin(9600); // Inicia a comunicação serial
+  
+  // Configuração do Timer1 para interrupção a cada 1 segundo (prescaler 1024)
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCCR1B |= (1 << CS10) | (1 << CS12); // Configura o Timer1 com prescaler 1024
+  TIMSK1 |= (1 << TOIE1); // Habilita a interrupção de overflow do Timer1
+}
+
+void loop() {
+  // loop principal. a manipulação do led é feita na ISR
+}
+
+void buttonInterrupt() {
+  unsigned long tempoAtual = millis(); // obtem o tempo atual
+  // Verifica se passou tempo suficiente desde o último debounce
+  if (tempoAtual - apertoBotao >= 20) {
+    // Atualiza o tempo do último debounce
+    apertoBotao = tempoAtual;
+    // Verifica se o botão foi pressionado (estado alterado de HIGH para LOW)
+    if (digitalRead(buttonPin) == LOW && statusBotao == HIGH) {
+      if (primeiroAperto) {
+        Serial.println("Botão pressionado pela primeira vez! Contagem iniciada após o próximo aperto.");
+        primeiroAperto = false;
+      } else {
+        contador++; // Incrementa o contador quando o botão é pressionado pela segunda vez
+        // Imprime o valor do contador na porta serial
+        Serial.print("Contador: ");
+        Serial.println(contador);
+      }
+    }
+    // Atualiza o estado anterior do botão
+    statusBotao = digitalRead(buttonPin);
+  }
+}
+
+ISR(TIMER1_OVF_vect) {
+  digitalWrite(ledPin, LOW); // Desliga o LED
+}
